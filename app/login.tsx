@@ -20,20 +20,21 @@ import {
   borderRadius,
   shadows,
 } from '@/constants/theme';
-import { Mail, Lock, ArrowRight } from 'lucide-react-native';
+import { Lock, ArrowRight } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { verifyToken } from '@/services/authServices';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [token, setToken] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { signIn } = useAuth();
   const router = useRouter();
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      setError('Please fill in all fields');
+    if (!token) {
+      setError('Please enter your token');
       return;
     }
 
@@ -41,10 +42,17 @@ export default function LoginScreen() {
     setIsLoading(true);
 
     try {
-      await signIn(email, password);
+      const user = await verifyToken(token);
+      await signIn(user.email, token); // Using token as password for compatibility
       router.replace('/tabs' as RelativePathString);
-    } catch (err) {
-      setError('Invalid email or password');
+    } catch (err: any) {
+      if (err?.response?.data?.message) {
+        setError(err.response.data.message);
+      } else if (err?.message) {
+        setError(err.message);
+      } else {
+        setError('An unexpected error occurred.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -89,27 +97,15 @@ export default function LoginScreen() {
           ) : null}
 
           <View style={styles.inputContainer}>
-            <Mail size={20} color={colors.gray[400]} />
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              placeholderTextColor={colors.gray[400]}
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
             <Lock size={20} color={colors.gray[400]} />
             <TextInput
               style={styles.input}
-              placeholder="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
+              placeholder="Enter your token"
+              value={token}
+              onChangeText={setToken}
               placeholderTextColor={colors.gray[400]}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
 
@@ -121,17 +117,21 @@ export default function LoginScreen() {
             onPress={handleLogin}
             disabled={isLoading}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={styles.loginButtonText}>
-                {isLoading ? 'Signing in...' : 'Sign In'}
-              </Text>
-              {!isLoading && <ArrowRight size={20} color="white" />}
+            <View style={styles.loginButtonContent}>
+              {isLoading ? (
+                <LoadingSpinner size={24} color="white" />
+              ) : (
+                <>
+                  <Text style={styles.loginButtonText}>Verify Token</Text>
+                  <ArrowRight size={20} color="white" />
+                </>
+              )}
             </View>
           </TouchableOpacity>
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>
-              Don't have an account? Contact your administrator
+              Don't have a token? Contact your administrator
             </Text>
           </View>
         </Animated.View>
@@ -208,18 +208,20 @@ const styles = StyleSheet.create({
     color: colors.gray[900],
   },
   loginButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: colors.primary[600],
     borderRadius: borderRadius.lg,
     padding: spacing[2],
     height: 56,
     marginTop: spacing[2],
-    // ...shadows.md,
   },
   loginButtonDisabled: {
     backgroundColor: colors.gray[400],
+  },
+  loginButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
   },
   loginButtonText: {
     fontFamily: typography.fontFamily,
@@ -227,7 +229,6 @@ const styles = StyleSheet.create({
     fontWeight: typography.weights.semibold as TextStyle['fontWeight'],
     color: 'white',
     marginRight: spacing[2],
-    zIndex: 1,
   },
   footer: {
     marginTop: spacing[6],

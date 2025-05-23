@@ -34,7 +34,7 @@ export default function TabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen
+      {/* <Tabs.Screen
         name="statistics"
         options={{
           title: 'Statistics',
@@ -42,7 +42,7 @@ export default function TabsLayout() {
             <BarChart4 size={size} color={color} />
           ),
         }}
-      />
+      /> */}
       <Tabs.Screen
         name="profile"
         options={{

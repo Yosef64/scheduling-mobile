@@ -1,7 +1,11 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { User, AuthContextType } from '@/types';
-import { mockUsers } from '@/data/mockData';
+import {
+  getStoredToken,
+  verifyToken,
+  clearToken,
+} from '@/services/authServices';
 
 export const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -16,18 +20,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = useState<User | null>(null);
-
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const userJson = await SecureStore.getItemAsync('user');
-        if (userJson) {
-          setUser(JSON.parse(userJson));
+        const token = await getStoredToken();
+        if (token) {
+          const userData = await verifyToken(token);
+          setUser(userData);
         }
       } catch (error) {
         console.error('Failed to load user data', error);
+        await clearToken();
       } finally {
         setIsLoading(false);
       }
@@ -36,16 +41,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     loadUser();
   }, []);
 
-  const signIn = async (email: string, password: string): Promise<void> => {
+  const signIn = async (_email: string, token: string): Promise<void> => {
     try {
-      console.log('Signing in with email:', email);
-      const foundUser = mockUsers.find((u) => u.email === email);
-      console.log('Found user', foundUser);
-      if (!foundUser) {
-        throw new Error('User not found');
-      }
-      await SecureStore.setItemAsync('user', JSON.stringify(foundUser));
-      setUser(foundUser);
+      const userData = await verifyToken(token);
+      setUser(userData);
     } catch (error) {
       console.error('Sign in failed', error);
       throw error;
@@ -54,7 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const signOut = async (): Promise<void> => {
     try {
-      await SecureStore.deleteItemAsync('user');
+      await clearToken();
       setUser(null);
     } catch (error) {
       console.error('Sign out failed', error);
