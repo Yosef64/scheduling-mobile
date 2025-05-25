@@ -99,7 +99,7 @@ export const ScheduleCard: React.FC<ScheduleCardProps> = ({
         </View>
 
         <View style={styles.contentContainer}>
-          <Text style={styles.subjectText}>{schedule.subjectName}</Text>
+          <Text style={styles.subjectText}>{schedule.course.name}</Text>
 
           <View style={styles.teacherContainer}>
             {schedule.teacher.avatar ? (

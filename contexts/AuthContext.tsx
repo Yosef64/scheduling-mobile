@@ -31,7 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setUser(userData);
         }
       } catch (error) {
-        console.error('Failed to load user data', error);
+        // console.error('Failed to load user data', error);
         await clearToken();
       } finally {
         setIsLoading(false);
@@ -41,7 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     loadUser();
   }, []);
 
-  const signIn = async (_email: string, token: string): Promise<void> => {
+  const signIn = async (token: string): Promise<void> => {
     try {
       const userData = await verifyToken(token);
       setUser(userData);

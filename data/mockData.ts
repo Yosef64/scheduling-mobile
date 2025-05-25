@@ -198,7 +198,7 @@ for (let i = 0; i < 14; i++) {
         subjectName: schedule.subjectName,
         date: dateString,
         status: randomStatus,
-        markedByUserId: '1',
+        markedBy: '1',
         markedAt: new Date(date).toISOString(),
         notes:
           randomStatus === 'absent'
@@ -239,7 +239,7 @@ todaySchedules.forEach((schedule) => {
       subjectName: schedule.subjectName,
       date: todayString,
       status: 'pending',
-      markedByUserId: '1',
+      markedBy: '1',
       markedAt: new Date().toISOString(),
       notes: '',
       arrivalTime: undefined,

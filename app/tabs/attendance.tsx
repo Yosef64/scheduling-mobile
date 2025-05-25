@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   TextInput,
   ViewStyle,
   TextStyle,
+  RefreshControl,
 } from 'react-native';
 import {
   Search,
@@ -17,27 +18,72 @@ import {
   UserX,
   Clock,
   UserCog,
+  AlertCircle,
 } from 'lucide-react-native';
 import { colors, spacing, typography, borderRadius } from '@/constants/theme';
 import { format, startOfDay, endOfDay, subDays, isSameDay } from 'date-fns';
-import { mockAttendance } from '@/data/mockData';
-import { Attendance } from '@/types';
-import Animated, { AnimatedStyle, FadeInUp } from 'react-native-reanimated';
+import { Attendance, AttendanceStatus } from '@/types';
+import Animated, { FadeInUp } from 'react-native-reanimated';
+import { getAttendances } from '@/services/attendanceService';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
+import Toast from 'react-native-toast-message';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function AttendanceScreen() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string | null>(null);
-  const [attendance, setAttendance] = useState(mockAttendance);
+  const [filterStatus, setFilterStatus] = useState<AttendanceStatus | null>(
+    null
+  );
+
+  const [attendance, setAttendance] = useState<Attendance[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+
+  const loadAttendanceData = useCallback(async (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
+      setError(null);
+
+      const response = await getAttendances(user?._id!);
+      console.log(response.length);
+
+      setAttendance(response);
+    } catch (err: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error loading attendance',
+        text2: err?.request?.data?.message || 'Failed to load attendance data',
+      });
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAttendanceData();
+  }, [loadAttendanceData]);
+
+  const handleRefresh = () => {
+    console.log('refreshing');
+    loadAttendanceData(true);
+  };
 
   // Get attendance records from the last 30 days
   const thirtyDaysAgo = startOfDay(subDays(new Date(), 30));
   const today = endOfDay(new Date());
 
   const filteredAttendance = attendance
-    .filter((record) => {
-      const recordDate = new Date(record.date);
-      return recordDate >= thirtyDaysAgo && recordDate <= today;
-    })
+    // .filter((record) => {
+    //   const recordDate = new Date(record.date);
+    //   return recordDate >= thirtyDaysAgo && recordDate <= today;
+    // })
     .filter((record) => {
       if (filterStatus === null) return true;
       return record.status === filterStatus;
@@ -46,8 +92,8 @@ export default function AttendanceScreen() {
       if (!searchQuery) return true;
       const query = searchQuery.toLowerCase();
       return (
-        record.teacherName.toLowerCase().includes(query) ||
-        record.subjectName.toLowerCase().includes(query)
+        record.teacher.name.toLowerCase().includes(query) ||
+        record.course.name.toLowerCase().includes(query)
       );
     })
     .sort(
@@ -57,28 +103,50 @@ export default function AttendanceScreen() {
   const filterOptions = [
     { value: null, label: 'All', icon: null },
     {
-      value: 'present',
+      value: 'present' as AttendanceStatus,
       label: 'Present',
-      icon: <UserCheck size={14} color={colors.success[500]} />,
+      icon: (
+        <UserCheck
+          size={14}
+          color={filterStatus === 'present' ? 'white' : colors.success[500]}
+        />
+      ),
     },
     {
-      value: 'late',
+      value: 'late' as AttendanceStatus,
       label: 'Late',
-      icon: <Clock size={14} color={colors.warning[500]} />,
+      icon: (
+        <Clock
+          size={14}
+          color={filterStatus === 'late' ? 'white' : colors.warning[500]}
+        />
+      ),
     },
     {
-      value: 'absent',
+      value: 'absent' as AttendanceStatus,
       label: 'Absent',
-      icon: <UserX size={14} color={colors.error[500]} />,
+      icon: (
+        <UserX
+          size={14}
+          color={filterStatus === 'absent' ? 'white' : colors.error[500]}
+        />
+      ),
     },
     {
-      value: 'substitute',
+      value: 'substitute' as AttendanceStatus,
       label: 'Substitute',
-      icon: <UserCog size={14} color={colors.secondary[500]} />,
+      icon: (
+        <UserCog
+          size={14}
+          color={
+            filterStatus === 'substitute' ? 'white' : colors.secondary[500]
+          }
+        />
+      ),
     },
   ];
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: AttendanceStatus) => {
     switch (status) {
       case 'present':
         return colors.success[500];
@@ -129,10 +197,10 @@ export default function AttendanceScreen() {
 
         <View style={styles.attendanceDetails as ViewStyle}>
           <Text style={styles.subjectName as TextStyle}>
-            {item.subjectName}
+            {item.course.name}
           </Text>
           <Text style={styles.teacherName as TextStyle}>
-            {item.teacherName}
+            {item.teacher.name}
           </Text>
 
           {!isPending && item.status === 'late' && (
@@ -149,30 +217,57 @@ export default function AttendanceScreen() {
     );
   };
 
-  return (
-    <SafeAreaView style={styles.container as ViewStyle}>
-      <View style={styles.header as ViewStyle}>
-        <Text style={styles.headerTitle as TextStyle}>Attendance Records</Text>
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <LoadingSpinner size={50} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-        <View style={styles.searchContainer as ViewStyle}>
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <AlertCircle size={40} color={colors.error[500]} />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => loadAttendanceData()}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Attendance Records</Text>
+
+        <View style={styles.searchContainer}>
           <Search
             size={20}
             color={colors.gray[400]}
-            style={styles.searchIcon as ViewStyle}
+            style={styles.searchIcon}
           />
           <TextInput
-            style={styles.searchInput as TextStyle}
+            style={styles.searchInput}
             placeholder="Search by teacher or subject"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
 
-        <View style={styles.filterOptions as ViewStyle}>
+        <View style={styles.filterOptions}>
           <Filter
             size={18}
             color={colors.gray[700]}
-            style={styles.filterIcon as ViewStyle}
+            style={styles.filterIcon}
           />
           <FlatList
             horizontal
@@ -182,7 +277,7 @@ export default function AttendanceScreen() {
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={[
-                  styles.filterOption as ViewStyle,
+                  styles.filterOption,
                   filterStatus === item.value && {
                     backgroundColor: item.value
                       ? getStatusColor(item.value)
@@ -194,7 +289,7 @@ export default function AttendanceScreen() {
                 {item.icon}
                 <Text
                   style={[
-                    styles.filterText as TextStyle,
+                    styles.filterText,
                     filterStatus === item.value && { color: 'white' },
                   ]}
                 >
@@ -208,14 +303,19 @@ export default function AttendanceScreen() {
 
       <FlatList
         data={filteredAttendance}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.attendanceList as ViewStyle}
+        keyExtractor={(item) => item._id}
+        contentContainerStyle={styles.attendanceList}
         renderItem={renderAttendanceItem}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={[colors.primary[500]]}
+          />
+        }
         ListEmptyComponent={
-          <View style={styles.emptyContainer as ViewStyle}>
-            <Text style={styles.emptyText as TextStyle}>
-              No attendance records found
-            </Text>
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No attendance records found</Text>
           </View>
         }
       />
@@ -353,5 +453,36 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.md,
     color: colors.gray[500],
     textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing[4],
+  },
+  errorText: {
+    fontFamily: typography.fontFamily,
+    fontSize: typography.sizes.lg,
+    color: colors.gray[700],
+    textAlign: 'center',
+    marginTop: spacing[2],
+    marginBottom: spacing[4],
+  },
+  retryButton: {
+    backgroundColor: colors.primary[500],
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[2],
+    borderRadius: borderRadius.md,
+  },
+  retryButtonText: {
+    fontFamily: typography.fontFamily,
+    fontSize: typography.sizes.md,
+    fontWeight: typography.weights.medium as TextStyle['fontWeight'],
+    color: 'white',
   },
 });

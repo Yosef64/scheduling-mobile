@@ -43,7 +43,7 @@ export default function LoginScreen() {
 
     try {
       const user = await verifyToken(token);
-      await signIn(user.email, token); // Using token as password for compatibility
+      await signIn(token); // Using token as password for compatibility
       router.replace('/tabs' as RelativePathString);
     } catch (err: any) {
       if (err?.response?.data?.message) {

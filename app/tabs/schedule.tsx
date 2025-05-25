@@ -1,69 +1,150 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   SafeAreaView,
   TextStyle,
-  ViewStyle,
+  RefreshControl,
 } from 'react-native';
-import { DailyScheduleView } from '@/components/DailyScheduleView';
 import { DateSelector } from '@/components/DateSelector';
-import { AttendanceStatus } from '@/types';
-import { mockSchedules, mockAttendance } from '@/data/mockData';
 import { colors, spacing, typography } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
+import {
+  mockScheduleResponse,
+  mockAttendanceData,
+} from '@/data/mockScheduleData';
+import { DailyScheduleView } from '@/components/DailyScheduleView';
+import { convertToClassSchedule } from '@/utils/scheduleConverter';
+import {
+  ClassSchedule,
+  Attendance,
+  AttendanceStatus,
+  User,
+  AttendanceRequest,
+} from '@/types';
 import { format } from 'date-fns';
-import { updateAttendance } from '@/services/attendanceService';
+import { createAttendance } from '@/services/attendanceService';
+import Toast from 'react-native-toast-message';
+import { toastConfig } from '@/components/ToastConfig';
 
 export default function ScheduleScreen() {
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [attendance, setAttendance] = useState(mockAttendance);
+  const [schedules, setSchedules] = useState<ClassSchedule[]>([]);
+  const [attendance, setAttendance] = useState<Attendance[]>([]);
+  const [studentGroup, setStudentGroup] = useState(
+    mockScheduleResponse.studentGroup
+  );
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = async (refreshing = false) => {
+    try {
+      if (!user) return;
+
+      if (refreshing) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
+      setError(null);
+
+      // Convert mock data to ClassSchedule format
+      const convertedSchedules = mockScheduleResponse.entries.flatMap(
+        convertToClassSchedule
+      );
+
+      // Get attendance for the selected date
+      const dateString = format(selectedDate, 'yyyy-MM-dd');
+      const todaysAttendance = mockAttendanceData.filter(
+        (a) => a.date === dateString
+      );
+
+      setStudentGroup(mockScheduleResponse.studentGroup);
+      setSchedules(convertedSchedules);
+      setAttendance(todaysAttendance);
+    } catch (err: any) {
+      console.error('Error loading schedule data:', err);
+      setError(err.message || 'Failed to load schedule data');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [user, selectedDate]);
 
   const handleDateChange = (date: Date) => {
     setSelectedDate(date);
   };
 
-  const handleAttendanceSubmit = (
-    scheduleId: string,
+  const handleRefresh = () => {
+    loadData(true);
+  };
+
+  const handleAttendanceSubmit = async (
     status: AttendanceStatus,
     notes: string,
-    arrivalTime?: string
+    arrivalTime?: string,
+    schedule?: ClassSchedule
   ) => {
-    if (!user) return;
+    if (!schedule || !user) return;
 
-    const dateString = format(selectedDate, 'yyyy-MM-dd');
-
-    // Find the schedule
-    const schedule = mockSchedules.find((s) => s.id === scheduleId);
-    if (!schedule) return;
-
-    // Create or update attendance record
-    const updatedAttendance = updateAttendance(
-      attendance,
-      scheduleId,
-      schedule,
-      dateString,
+    const newAttendance: AttendanceRequest = {
+      schedule: schedule.id.split('-')[0],
+      date: format(selectedDate, 'yyyy-MM-dd'),
       status,
       notes,
-      user.id,
-      arrivalTime
-    );
+      arrivalTime,
+      teacher: schedule.teacher._id,
+      course: schedule.course._id,
+      markedBy: user._id,
+    };
 
-    // Update state
-    setAttendance(updatedAttendance);
+    setIsLoading(true);
+
+    try {
+      await createAttendance(newAttendance);
+      Toast.show({
+        type: 'success',
+        text1: 'Attendance Marked',
+        text2: `Successfully marked ${status} for ${schedule.course.name}`,
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
+
+      // Refresh the attendance data
+      loadData();
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: error.request?.data?.message || 'Failed to mark attendance',
+        position: 'bottom',
+        visibilityTime: 4000,
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <SafeAreaView style={styles.container as ViewStyle}>
-      <View style={styles.header as ViewStyle}>
-        <Text style={styles.welcomeText as TextStyle}>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.welcomeText}>
           Hello, {user?.name?.split(' ')[0] || 'User'}
         </Text>
-        <Text style={styles.subText as TextStyle}>
-          {user?.class} • {user?.department}
-        </Text>
+        {studentGroup && (
+          <Text style={styles.subText}>
+            {studentGroup.department} • Year {studentGroup.year} Section{' '}
+            {studentGroup.section}
+          </Text>
+        )}
       </View>
 
       <DateSelector
@@ -71,14 +152,15 @@ export default function ScheduleScreen() {
         onDateChange={handleDateChange}
       />
 
-      <View style={styles.scheduleContainer as ViewStyle}>
+      <View style={styles.scheduleContainer}>
         <DailyScheduleView
-          schedules={mockSchedules}
-          attendance={attendance}
+          schedules={schedules}
           date={selectedDate}
+          attendance={attendance}
           onAttendanceSubmit={handleAttendanceSubmit}
         />
       </View>
+      <Toast config={toastConfig} />
     </SafeAreaView>
   );
 }
@@ -87,6 +169,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.gray[50],
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     paddingHorizontal: spacing[3],

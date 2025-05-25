@@ -1,5 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal } from 'react-native';
+import React, { useState, useCallback, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+} from 'react-native';
 import { format, parseISO, isToday, differenceInMinutes } from 'date-fns';
 import { ClassSchedule, Attendance, AttendanceStatus } from '@/types';
 import { colors, spacing, typography } from '@/constants/theme';
@@ -7,69 +13,112 @@ import { ScheduleCard } from './ScheduleCard';
 import { AttendanceForm } from './AttendanceForm';
 import { AlertCircle } from 'lucide-react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import BottomSheet, {
+  BottomSheetBackdrop,
+  BottomSheetBackdropProps,
+} from '@gorhom/bottom-sheet';
+import Toast from 'react-native-toast-message';
 
 interface DailyScheduleViewProps {
   schedules: ClassSchedule[];
   attendance: Attendance[];
   date: Date;
-  onAttendanceSubmit: (scheduleId: string, status: AttendanceStatus, notes: string, arrivalTime?: string) => void;
+  onAttendanceSubmit: (
+    status: AttendanceStatus,
+    notes: string,
+    arrivalTime?: string,
+    schedule?: ClassSchedule
+  ) => void;
 }
 
 export const DailyScheduleView: React.FC<DailyScheduleViewProps> = ({
   schedules,
   attendance,
   date,
-  onAttendanceSubmit
+  onAttendanceSubmit,
 }) => {
-  const [selectedSchedule, setSelectedSchedule] = useState<ClassSchedule | null>(null);
-  
+  const [selectedSchedule, setSelectedSchedule] =
+    useState<ClassSchedule | null>(null);
+  const bottomSheetRef = React.useRef<BottomSheet>(null);
+  const snapPoints = useMemo(() => ['85%'], []);
+
   const dateString = format(date, 'yyyy-MM-dd');
   const dayName = format(date, 'EEEE');
-  
+
   // Filter schedules for the current day
   const daySchedules = schedules
-    .filter(schedule => schedule.day === dayName)
+    .filter((schedule) => schedule.day === dayName)
     .sort((a, b) => {
       const timeA = a.startTime.split(':').map(Number);
       const timeB = b.startTime.split(':').map(Number);
-      return (timeA[0] * 60 + timeA[1]) - (timeB[0] * 60 + timeB[1]);
+      return timeA[0] * 60 + timeA[1] - (timeB[0] * 60 + timeB[1]);
     });
-  
-  // Get attendance status for each schedule
-  const getAttendanceStatus = (scheduleId: string): AttendanceStatus | undefined => {
-    const found = attendance.find(a => a.scheduleId === scheduleId && a.date === dateString);
+
+  const getAttendanceStatus = (
+    scheduleId: string
+  ): AttendanceStatus | undefined => {
+    const found = attendance.find(
+      (a) => a.schedule === scheduleId && a.date === dateString
+    );
     return found?.status;
   };
-  
+
   const handleSchedulePress = (schedule: ClassSchedule) => {
-    if (isToday(date)) {
-      setSelectedSchedule(schedule);
+    if (!isToday(new Date(schedule.day))) {
+      Toast.show({
+        type: 'warning',
+        text1: 'Cannot mark attendance for this day',
+        text2: "Please mark attendance for today's schedule",
+      });
+      return;
     }
+    setSelectedSchedule(schedule);
+    bottomSheetRef.current?.snapToIndex(0);
   };
-  
-  const handleSubmitAttendance = (status: AttendanceStatus, notes: string, arrivalTime?: string) => {
+
+  const handleSubmitAttendance = (
+    status: AttendanceStatus,
+    notes: string,
+    arrivalTime?: string,
+    schedule?: ClassSchedule
+  ) => {
     if (selectedSchedule) {
-      onAttendanceSubmit(selectedSchedule.id, status, notes, arrivalTime);
+      onAttendanceSubmit(status, notes, arrivalTime, schedule);
+      bottomSheetRef.current?.close();
       setSelectedSchedule(null);
     }
   };
-  
-  const closeModal = () => {
+
+  const closeBottomSheet = useCallback(() => {
+    bottomSheetRef.current?.close();
     setSelectedSchedule(null);
-  };
-  
+  }, []);
+
+  const renderBackdrop = useCallback(
+    (props: BottomSheetBackdropProps) => (
+      <BottomSheetBackdrop
+        {...props}
+        appearsOnIndex={0}
+        disappearsOnIndex={-1}
+      />
+    ),
+    []
+  );
+
   if (daySchedules.length === 0) {
     return (
-      <Animated.View 
+      <Animated.View
         style={styles.emptyContainer}
         entering={FadeIn.duration(500)}
       >
         <AlertCircle size={40} color={colors.gray[400]} />
-        <Text style={styles.emptyText}>No classes scheduled for {format(date, 'EEEE')}</Text>
+        <Text style={styles.emptyText}>
+          No classes scheduled for {format(date, 'EEEE')}
+        </Text>
       </Animated.View>
     );
   }
-  
+
   return (
     <View style={styles.container}>
       <FlatList
@@ -85,28 +134,25 @@ export const DailyScheduleView: React.FC<DailyScheduleViewProps> = ({
           />
         )}
       />
-      
-      <Modal
-        visible={!!selectedSchedule}
-        animationType="slide"
-        transparent
-        onRequestClose={closeModal}
+
+      <BottomSheet
+        ref={bottomSheetRef}
+        index={-1}
+        snapPoints={snapPoints}
+        enablePanDownToClose
+        onClose={closeBottomSheet}
+        backdropComponent={renderBackdrop}
+        backgroundStyle={styles.bottomSheetBackground}
+        handleIndicatorStyle={styles.bottomSheetIndicator}
       >
         {selectedSchedule && (
-          <View style={styles.modalContainer}>
-            <TouchableOpacity 
-              style={styles.modalOverlay} 
-              onPress={closeModal}
-              activeOpacity={1}
-            />
-            <AttendanceForm
-              schedule={selectedSchedule}
-              onSubmit={handleSubmitAttendance}
-              onCancel={closeModal}
-            />
-          </View>
+          <AttendanceForm
+            schedule={selectedSchedule}
+            onSubmit={handleSubmitAttendance}
+            onCancel={closeBottomSheet}
+          />
         )}
-      </Modal>
+      </BottomSheet>
     </View>
   );
 };
@@ -131,12 +177,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing[2],
   },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
+  bottomSheetBackground: {
+    backgroundColor: 'white',
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  bottomSheetIndicator: {
+    backgroundColor: colors.gray[300],
+    width: 40,
   },
 });

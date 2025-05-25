@@ -23,156 +23,120 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   LogOut,
   ChevronRight,
-  Bell,
   Moon,
-  Settings,
   HelpCircle,
   User,
-  Shield,
+  Mail,
+  Phone,
+  MapPin,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useNavigation } from '@react-navigation/native';
+import { RelativePathString, useRouter } from 'expo-router';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
+  const router = useRouter();
 
   if (!user) {
     return (
-      <SafeAreaView style={styles.container as ViewStyle}>
-        <View style={styles.centered as ViewStyle}>
-          <Text style={styles.message as TextStyle}>
-            Please log in to view your profile
-          </Text>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centered}>
+          <Text style={styles.message}>Please log in to view your profile</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container as ViewStyle}>
+    <SafeAreaView style={styles.container}>
       <ScrollView>
-        <View style={styles.header as ViewStyle}>
-          <Text style={styles.headerTitle as TextStyle}>Profile</Text>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Profile</Text>
         </View>
 
         <Animated.View
-          style={styles.profileCard as ViewStyle}
+          style={styles.profileCard}
           entering={FadeInDown.duration(500)}
         >
-          {user.avatar ? (
-            <Image
-              source={{ uri: user.avatar }}
-              style={styles.avatar as ImageStyle}
-            />
-          ) : (
-            <View
-              style={[
-                styles.avatar as ViewStyle,
-                styles.avatarPlaceholder as ViewStyle,
-              ]}
+          <View style={styles.avatarContainer}>
+            {user.avatar ? (
+              <Image source={{ uri: user.avatar }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                <Text style={styles.avatarText}>
+                  {user.name
+                    .split(' ')
+                    .map((n) => n[0])
+                    .join('')}
+                </Text>
+              </View>
+            )}
+            <TouchableOpacity
+              style={styles.editAvatarButton}
+              onPress={() =>
+                router.push('screens/EditProfile' as RelativePathString)
+              }
             >
-              <Text style={styles.avatarText as TextStyle}>
-                {user.name
-                  .split(' ')
-                  .map((n) => n[0])
-                  .join('')}
-              </Text>
-            </View>
-          )}
+              <User size={16} color={colors.primary[500]} />
+            </TouchableOpacity>
+          </View>
 
-          <View style={styles.userInfo as ViewStyle}>
-            <Text style={styles.userName as TextStyle}>{user.name}</Text>
-            <Text style={styles.userRole as TextStyle}>
-              Class Representative
-            </Text>
-            <Text style={styles.userDetails as TextStyle}>
-              {user.class} • {user.department}
-            </Text>
+          <View style={styles.userInfo}>
+            <Text style={styles.userName}>{user.name}</Text>
+            <Text style={styles.userRole}>Class Representative</Text>
+
+            <View style={styles.detailsContainer}>
+              <View style={styles.detailRow}>
+                <MapPin size={16} color={colors.gray[500]} />
+                <Text style={styles.detailText}>{user.department}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Mail size={16} color={colors.gray[500]} />
+                <Text style={styles.detailText}>{user.class}</Text>
+              </View>
+            </View>
           </View>
         </Animated.View>
 
-        <View style={styles.sectionContainer as ViewStyle}>
-          <Text style={styles.sectionTitle as TextStyle}>Account</Text>
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>Settings</Text>
 
           <Animated.View
-            style={styles.optionCard as ViewStyle}
-            entering={FadeInDown.duration(500).delay(100)}
+            style={styles.optionCard}
+            entering={FadeInDown.duration(500).delay(200)}
           >
-            <TouchableOpacity style={styles.option as ViewStyle}>
-              <View style={styles.optionLeft as ViewStyle}>
+            <TouchableOpacity
+              style={styles.option}
+              onPress={() =>
+                router.push('screens/EditProfile' as RelativePathString)
+              }
+            >
+              <View style={styles.optionLeft}>
                 <View
                   style={[
-                    styles.optionIcon as ViewStyle,
+                    styles.optionIcon,
                     { backgroundColor: colors.primary[50] },
                   ]}
                 >
                   <User size={20} color={colors.primary[500]} />
                 </View>
-                <Text style={styles.optionText as TextStyle}>Edit Profile</Text>
+                <Text style={styles.optionText}>Edit Profile</Text>
               </View>
               <ChevronRight size={20} color={colors.gray[400]} />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.option as ViewStyle}>
-              <View style={styles.optionLeft as ViewStyle}>
+            <View style={styles.switchOption}>
+              <View style={styles.optionLeft}>
                 <View
                   style={[
-                    styles.optionIcon as ViewStyle,
-                    { backgroundColor: colors.secondary[50] },
-                  ]}
-                >
-                  <Shield size={20} color={colors.secondary[500]} />
-                </View>
-                <Text style={styles.optionText as TextStyle}>
-                  Privacy and Security
-                </Text>
-              </View>
-              <ChevronRight size={20} color={colors.gray[400]} />
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
-
-        <View style={styles.sectionContainer as ViewStyle}>
-          <Text style={styles.sectionTitle as TextStyle}>Preferences</Text>
-
-          <Animated.View
-            style={styles.optionCard as ViewStyle}
-            entering={FadeInDown.duration(500).delay(200)}
-          >
-            <View style={styles.switchOption as ViewStyle}>
-              <View style={styles.optionLeft as ViewStyle}>
-                <View
-                  style={[
-                    styles.optionIcon as ViewStyle,
-                    { backgroundColor: colors.accent[50] },
-                  ]}
-                >
-                  <Bell size={20} color={colors.accent[500]} />
-                </View>
-                <Text style={styles.optionText as TextStyle}>
-                  Notifications
-                </Text>
-              </View>
-              <Switch
-                trackColor={{
-                  false: colors.gray[300],
-                  true: colors.primary[300],
-                }}
-                thumbColor={colors.primary[500]}
-                value={true}
-              />
-            </View>
-
-            <View style={styles.switchOption as ViewStyle}>
-              <View style={styles.optionLeft as ViewStyle}>
-                <View
-                  style={[
-                    styles.optionIcon as ViewStyle,
+                    styles.optionIcon,
                     { backgroundColor: colors.gray[200] },
                   ]}
                 >
                   <Moon size={20} color={colors.gray[700]} />
                 </View>
-                <Text style={styles.optionText as TextStyle}>Dark Mode</Text>
+                <Text style={styles.optionText}>Dark Mode</Text>
               </View>
               <Switch
                 trackColor={{
@@ -183,42 +147,23 @@ export default function ProfileScreen() {
                 value={false}
               />
             </View>
-          </Animated.View>
-        </View>
 
-        <View style={styles.sectionContainer as ViewStyle}>
-          <Text style={styles.sectionTitle as TextStyle}>Support</Text>
-
-          <Animated.View
-            style={styles.optionCard as ViewStyle}
-            entering={FadeInDown.duration(500).delay(300)}
-          >
-            <TouchableOpacity style={styles.option as ViewStyle}>
-              <View style={styles.optionLeft as ViewStyle}>
+            <TouchableOpacity
+              style={styles.option}
+              onPress={() =>
+                router.push('screens/HelpCenter' as RelativePathString)
+              }
+            >
+              <View style={styles.optionLeft}>
                 <View
                   style={[
-                    styles.optionIcon as ViewStyle,
+                    styles.optionIcon,
                     { backgroundColor: colors.warning[50] },
                   ]}
                 >
                   <HelpCircle size={20} color={colors.warning[500]} />
                 </View>
-                <Text style={styles.optionText as TextStyle}>Help Center</Text>
-              </View>
-              <ChevronRight size={20} color={colors.gray[400]} />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.option as ViewStyle}>
-              <View style={styles.optionLeft as ViewStyle}>
-                <View
-                  style={[
-                    styles.optionIcon as ViewStyle,
-                    { backgroundColor: colors.secondary[50] },
-                  ]}
-                >
-                  <Settings size={20} color={colors.secondary[500]} />
-                </View>
-                <Text style={styles.optionText as TextStyle}>App Settings</Text>
+                <Text style={styles.optionText}>Help Center</Text>
               </View>
               <ChevronRight size={20} color={colors.gray[400]} />
             </TouchableOpacity>
@@ -227,14 +172,14 @@ export default function ProfileScreen() {
 
         <Animated.View
           entering={FadeInDown.duration(500).delay(400)}
-          style={styles.logoutContainer as ViewStyle}
+          style={styles.logoutContainer}
         >
           <TouchableOpacity
-            style={styles.logoutButton as ViewStyle}
+            style={styles.logoutButton}
             onPress={() => signOut()}
           >
             <LogOut size={20} color={colors.error[500]} />
-            <Text style={styles.logoutText as TextStyle}>Log Out</Text>
+            <Text style={styles.logoutText}>Log Out</Text>
           </TouchableOpacity>
         </Animated.View>
       </ScrollView>
@@ -269,56 +214,82 @@ const styles = StyleSheet.create({
     color: colors.gray[900],
   },
   profileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginHorizontal: spacing[3],
     marginVertical: spacing[2],
-    padding: spacing[3],
+    padding: spacing[4],
     backgroundColor: 'white',
-    borderRadius: borderRadius.lg,
-    ...shadows.md,
+    borderRadius: borderRadius.xl,
+    ...shadows.lg,
+    alignItems: 'center',
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: spacing[3],
   },
   avatar: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    marginRight: spacing[3],
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
+    borderColor: colors.primary[100],
   },
   avatarPlaceholder: {
     backgroundColor: colors.primary[100],
     justifyContent: 'center',
     alignItems: 'center',
   },
+  editAvatarButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: 'white',
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadows.sm,
+    borderWidth: 1,
+    borderColor: colors.primary[100],
+  },
   avatarText: {
     fontFamily: typography.fontFamily,
     fontWeight: typography.weights.bold as TextStyle['fontWeight'],
-    fontSize: 24,
+    fontSize: 32,
     color: colors.primary[700],
   },
   userInfo: {
-    flex: 1,
+    alignItems: 'center',
   },
   userName: {
     fontFamily: typography.fontFamily,
     fontWeight: typography.weights.bold as TextStyle['fontWeight'],
-    fontSize: typography.sizes.lg,
+    fontSize: typography.sizes.xl,
     color: colors.gray[900],
-    marginBottom: spacing['0.5'],
+    marginBottom: spacing[1],
   },
   userRole: {
     fontFamily: typography.fontFamily,
-    fontSize: typography.sizes.sm,
+    fontSize: typography.sizes.md,
     color: colors.primary[600],
     fontWeight: typography.weights.medium as TextStyle['fontWeight'],
-    marginBottom: spacing['0.5'],
+    marginBottom: spacing[2],
   },
-  userDetails: {
+  detailsContainer: {
+    gap: spacing[2],
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+  },
+  detailText: {
     fontFamily: typography.fontFamily,
     fontSize: typography.sizes.sm,
-    color: colors.gray[500],
+    color: colors.gray[600],
   },
   sectionContainer: {
-    marginTop: spacing[3],
+    marginTop: spacing[4],
     marginHorizontal: spacing[3],
   },
   sectionTitle: {
@@ -326,11 +297,11 @@ const styles = StyleSheet.create({
     fontWeight: typography.weights.semibold as TextStyle['fontWeight'],
     fontSize: typography.sizes.md,
     color: colors.gray[700],
-    marginBottom: spacing[1],
+    marginBottom: spacing[2],
   },
   optionCard: {
     backgroundColor: 'white',
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     ...shadows.sm,
   },
   option: {

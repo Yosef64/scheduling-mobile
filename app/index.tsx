@@ -4,7 +4,7 @@ import { Redirect, RelativePathString } from 'expo-router';
 // Redirect to tabs layout
 export default function Home() {
   const { user } = useAuth();
-  console.log('User:', user);
+
   return (
     <Redirect
       href={
