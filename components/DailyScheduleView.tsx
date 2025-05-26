@@ -64,6 +64,7 @@ export const DailyScheduleView: React.FC<DailyScheduleViewProps> = ({
   };
 
   const handleSchedulePress = (schedule: ClassSchedule) => {
+    console.log(new Date(schedule.day));
     if (!isToday(new Date(schedule.day))) {
       Toast.show({
         type: 'warning',
@@ -123,13 +124,13 @@ export const DailyScheduleView: React.FC<DailyScheduleViewProps> = ({
     <View style={styles.container}>
       <FlatList
         data={daySchedules}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item._id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
         renderItem={({ item }) => (
           <ScheduleCard
             schedule={item}
-            status={getAttendanceStatus(item.id)}
+            status={getAttendanceStatus(item._id)}
             onPress={handleSchedulePress}
           />
         )}

@@ -55,7 +55,8 @@ export const toastConfig = {
 
 const styles = StyleSheet.create({
   successToast: {
-    backgroundColor: 'white',
+    backgroundColor: colors.success[600],
+    color: 'white',
     borderRadius: borderRadius.lg,
     marginHorizontal: 16,
     height: 'auto',

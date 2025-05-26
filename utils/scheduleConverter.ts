@@ -43,14 +43,15 @@ export function convertToClassSchedule(schedule: Schedule): ClassSchedule[] {
     const lastTimeslot = dayTimeslots[dayTimeslots.length - 1];
 
     return {
-      id: `${schedule._id}-${day}`,
+      _id: `${schedule._id}-${day}`,
       course: schedule.activity.course,
       teacher,
       room: schedule.room.name,
       day: day,
       startTime: firstTimeslot.startTime,
       endTime: lastTimeslot.endTime,
-      classGroup: `${schedule.studentGroup.department} Year ${schedule.studentGroup.year} Section ${schedule.studentGroup.section}`,
+      classGroup: schedule.activity.studentGroup,
+      createdBy: schedule.createdBy,
     };
   });
 }

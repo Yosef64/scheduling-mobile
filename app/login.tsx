@@ -22,7 +22,6 @@ import {
 } from '@/constants/theme';
 import { Lock, ArrowRight } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { verifyToken } from '@/services/authServices';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 export default function LoginScreen() {
@@ -42,8 +41,7 @@ export default function LoginScreen() {
     setIsLoading(true);
 
     try {
-      const user = await verifyToken(token);
-      await signIn(token); // Using token as password for compatibility
+      await signIn(token);
       router.replace('/tabs' as RelativePathString);
     } catch (err: any) {
       if (err?.response?.data?.message) {

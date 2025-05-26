@@ -1,5 +1,5 @@
 import api from './api';
-import { ScheduleResponse, StudentGroup } from '@/types';
+import { ClassSchedule, ScheduleResponse, StudentGroup } from '@/types';
 
 export const fetchSchedules = async (
   studentGroupId: string,
@@ -54,4 +54,16 @@ export const getCurrentSemester = (): string => {
 
   // Assuming semesters are Fall (8-12) and Spring (1-7)
   return month >= 8 ? `Fall ${year}` : `Spring ${year}`;
+};
+
+export const rescheduleClass = async (schedule: ClassSchedule) => {
+  const reschedule: ClassSchedule = {
+    ...schedule,
+    _id: schedule._id.split('-')[0],
+  };
+
+  const response = await api.post(`/representatives/askReschedule`, {
+    reschedule,
+  });
+  return response.data;
 };

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   Image,
   TextStyle,
+  Modal,
+  Dimensions,
 } from 'react-native';
 import { ClassSchedule, AttendanceStatus } from '@/types';
 import {
@@ -15,14 +17,66 @@ import {
   shadows,
   typography,
 } from '@/constants/theme';
-import { Clock, MapPin, UserCheck, UserX, UserCog } from 'lucide-react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import {
+  Clock,
+  MapPin,
+  UserCheck,
+  UserX,
+  UserCog,
+  MoreVertical,
+  Calendar,
+  AlertCircle,
+} from 'lucide-react-native';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { rescheduleClass } from '@/services/scheduleService';
+import Toast from 'react-native-toast-message';
 
 interface ScheduleCardProps {
   schedule: ClassSchedule;
   status?: AttendanceStatus;
   onPress: (schedule: ClassSchedule) => void;
 }
+
+const DropdownMenu: React.FC<{
+  visible: boolean;
+  onClose: () => void;
+  onOptionSelect: (option: string) => void;
+}> = ({ visible, onClose, onOptionSelect }) => {
+  const options = [
+    { label: 'Mark Attendance', value: 'attendance' },
+    { label: 'Ask Reschedule', value: 'reschedule' },
+  ];
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <TouchableOpacity
+        style={styles.modalOverlay}
+        activeOpacity={1}
+        onPress={onClose}
+      >
+        <View style={styles.dropdown}>
+          {options.map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              style={styles.dropdownItem}
+              onPress={() => {
+                onOptionSelect(option.value);
+                onClose();
+              }}
+            >
+              <Text style={styles.dropdownText}>{option.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+};
 
 const StatusBadge: React.FC<{ status?: AttendanceStatus }> = ({ status }) => {
   if (!status || status === 'pending') return null;
@@ -80,11 +134,105 @@ const StatusBadge: React.FC<{ status?: AttendanceStatus }> = ({ status }) => {
   );
 };
 
+interface CustomAlertProps {
+  visible: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+}
+
+const CustomAlert: React.FC<CustomAlertProps> = ({
+  visible,
+  onClose,
+  onConfirm,
+  title,
+  message,
+}) => {
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <TouchableOpacity
+        style={styles.alertOverlay}
+        activeOpacity={1}
+        onPress={onClose}
+      >
+        <Animated.View
+          entering={FadeInDown.duration(300).springify()}
+          style={styles.alertContainer}
+        >
+          <View style={styles.alertIconContainer}>
+            <Calendar size={32} color={colors.primary[500]} />
+          </View>
+
+          <Text style={styles.alertTitle}>{title}</Text>
+          <Text style={styles.alertMessage}>{message}</Text>
+
+          <View style={styles.alertButtonsContainer}>
+            <TouchableOpacity
+              style={[styles.alertButton, styles.alertCancelButton]}
+              onPress={onClose}
+            >
+              <Text
+                style={[styles.alertButtonText, styles.alertCancelButtonText]}
+              >
+                Cancel
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.alertButton, styles.alertConfirmButton]}
+              onPress={() => {
+                onConfirm();
+                onClose();
+              }}
+            >
+              <Text
+                style={[styles.alertButtonText, styles.alertConfirmButtonText]}
+              >
+                Request
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </TouchableOpacity>
+    </Modal>
+  );
+};
+
 export const ScheduleCard: React.FC<ScheduleCardProps> = ({
   schedule,
   status,
   onPress,
 }) => {
+  const [dropdownVisible, setDropdownVisible] = useState(false);
+  const [alertVisible, setAlertVisible] = useState(false);
+
+  const handleOptionSelect = (option: string) => {
+    if (option === 'reschedule') {
+      setAlertVisible(true);
+    } else if (option === 'attendance') {
+      onPress(schedule);
+    }
+  };
+
+  const handleRescheduleConfirm = async () => {
+    try {
+      await rescheduleClass(schedule);
+      Toast.show({
+        text1: 'Reschedule request sent',
+        type: 'success',
+        position: 'bottom',
+      });
+    } catch (error: any) {
+      Toast.show({
+        text1: 'Error rescheduling class',
+        text2: error?.response?.data.message || 'Unknown error',
+        type: 'error',
+        position: 'bottom',
+      });
+    }
+  };
+
   return (
     <Animated.View entering={FadeIn.duration(500)}>
       <TouchableOpacity
@@ -135,7 +283,28 @@ export const ScheduleCard: React.FC<ScheduleCardProps> = ({
           </View>
         </View>
 
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={() => setDropdownVisible(true)}
+        >
+          <MoreVertical size={20} color={colors.gray[600]} />
+        </TouchableOpacity>
+
         <StatusBadge status={status} />
+
+        <DropdownMenu
+          visible={dropdownVisible}
+          onClose={() => setDropdownVisible(false)}
+          onOptionSelect={handleOptionSelect}
+        />
+
+        <CustomAlert
+          visible={alertVisible}
+          onClose={() => setAlertVisible(false)}
+          onConfirm={handleRescheduleConfirm}
+          title="Request Reschedule"
+          message={`Would you like to request rescheduling ${schedule.course.name} class scheduled for ${schedule.startTime} - ${schedule.endTime}?`}
+        />
       </TouchableOpacity>
     </Animated.View>
   );
@@ -236,5 +405,101 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: 'white',
     marginLeft: 4,
+  },
+  menuButton: {
+    position: 'absolute',
+    top: spacing[2],
+    right: spacing[2],
+    padding: spacing[1],
+    zIndex: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'flex-end',
+  },
+  dropdown: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+    paddingVertical: spacing[2],
+    ...shadows.lg,
+  },
+  dropdownItem: {
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[4],
+  },
+  dropdownText: {
+    fontFamily: typography.fontFamily,
+    fontSize: typography.sizes.md,
+    color: colors.gray[800],
+  },
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  alertContainer: {
+    backgroundColor: 'white',
+    borderRadius: borderRadius.xl,
+    padding: spacing[4],
+    width: Dimensions.get('window').width - spacing[8],
+    alignItems: 'center',
+    ...shadows.xl,
+  },
+  alertIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.primary[50],
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing[3],
+  },
+  alertTitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: typography.sizes.xl,
+    fontWeight: typography.weights.bold as TextStyle['fontWeight'],
+    color: colors.gray[900],
+    marginBottom: spacing[2],
+    textAlign: 'center',
+  },
+  alertMessage: {
+    fontFamily: typography.fontFamily,
+    fontSize: typography.sizes.md,
+    color: colors.gray[600],
+    marginBottom: spacing[4],
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  alertButtonsContainer: {
+    flexDirection: 'row',
+    gap: spacing[3],
+    width: '100%',
+  },
+  alertButton: {
+    flex: 1,
+    paddingVertical: spacing['1.5'],
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertCancelButton: {
+    backgroundColor: colors.gray[100],
+  },
+  alertConfirmButton: {
+    backgroundColor: colors.primary[500],
+  },
+  alertButtonText: {
+    fontFamily: typography.fontFamily,
+    fontSize: typography.sizes.md,
+    fontWeight: typography.weights.semibold as TextStyle['fontWeight'],
+  },
+  alertCancelButtonText: {
+    color: colors.gray[700],
+  },
+  alertConfirmButtonText: {
+    color: 'white',
   },
 });

@@ -1,12 +1,7 @@
 export interface User {
   _id: string;
   name: string;
-  class: string;
-  year: number;
-  department: string;
-  avatar?: string;
-  email?: string;
-  phone?: string;
+  studentGroup: StudentGroup;
 }
 
 export interface Teacher {
@@ -20,14 +15,15 @@ export interface Teacher {
 }
 
 export interface ClassSchedule {
-  id: string;
+  _id: string;
   course: Course;
   teacher: Teacher;
   room: string;
   day: string;
   startTime: string;
   endTime: string;
-  classGroup: string;
+  classGroup: StudentGroup;
+  createdBy: CreatedBy;
 }
 
 export type AttendanceStatus =
@@ -78,6 +74,7 @@ export interface CreatedBy {
   _id: string;
   username: string;
   name: string;
+  role: string;
 }
 
 export interface Activity {

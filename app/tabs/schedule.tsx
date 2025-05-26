@@ -96,7 +96,7 @@ export default function ScheduleScreen() {
     if (!schedule || !user) return;
 
     const newAttendance: AttendanceRequest = {
-      schedule: schedule.id.split('-')[0],
+      schedule: schedule._id.split('-')[0],
       date: format(selectedDate, 'yyyy-MM-dd'),
       status,
       notes,
