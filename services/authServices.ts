@@ -3,20 +3,12 @@ import * as SecureStore from 'expo-secure-store';
 import { User } from '@/types';
 
 export const verifyToken = async (token: string): Promise<User> => {
-  try {
-    const response = await api.post('/auth/verify', { token });
-    const user = response.data.user;
+  const response = await api.post('/auth/verify', { token });
+  const user = response.data.user;
+  await SecureStore.setItemAsync('token', token);
+  await SecureStore.setItemAsync('user', JSON.stringify(user));
 
-    // Store the token for future requests
-    await SecureStore.setItemAsync('token', token);
-
-    // Store the user data
-    await SecureStore.setItemAsync('user', JSON.stringify(user));
-
-    return user;
-  } catch (error) {
-    throw new Error('Invalid token');
-  }
+  return user;
 };
 
 export const getStoredToken = async (): Promise<string | null> => {

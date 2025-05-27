@@ -104,7 +104,7 @@ export default function ScheduleScreen() {
   console.log('selectedDate', selectedDate);
   useEffect(() => {
     loadData();
-  }, [user, semester, isRefreshing]);
+  }, [user, isRefreshing]);
 
   const handleDateChange = (date: Date) => {
     setSelectedDate(date);
@@ -159,19 +159,6 @@ export default function ScheduleScreen() {
       setIsLoading(false);
     }
   };
-
-  if (!semester) {
-    return (
-      <SemesterModal
-        visible={true}
-        onClose={() => {}}
-        onSelect={(semester) => {
-          console.log('semester', semester);
-          setSemester(semester.toString());
-        }}
-      />
-    );
-  }
 
   if (isLoading) {
     return (
