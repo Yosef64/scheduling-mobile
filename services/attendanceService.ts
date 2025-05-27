@@ -12,7 +12,7 @@ export const createAttendance = async (newAttendance: AttendanceRequest) => {
   const response = await api.post('/representatives/attendance', newAttendance);
   return response.data;
 };
-export const getAttendances = async (id: string) => {
+export const getAttendances = async (id: string): Promise<Attendance[]> => {
   const response = await api.get(
     `/representatives/attendance?representativeId=${id}`
   );

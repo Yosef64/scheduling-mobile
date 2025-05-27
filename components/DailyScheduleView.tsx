@@ -5,6 +5,7 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
 import { format, parseISO, isToday, differenceInMinutes } from 'date-fns';
 import { ClassSchedule, Attendance, AttendanceStatus } from '@/types';
@@ -29,6 +30,7 @@ interface DailyScheduleViewProps {
     arrivalTime?: string,
     schedule?: ClassSchedule
   ) => void;
+  refreshControl?: React.ReactElement<any, any>;
 }
 
 export const DailyScheduleView: React.FC<DailyScheduleViewProps> = ({
@@ -36,6 +38,7 @@ export const DailyScheduleView: React.FC<DailyScheduleViewProps> = ({
   attendance,
   date,
   onAttendanceSubmit,
+  refreshControl,
 }) => {
   const [selectedSchedule, setSelectedSchedule] =
     useState<ClassSchedule | null>(null);
@@ -64,8 +67,7 @@ export const DailyScheduleView: React.FC<DailyScheduleViewProps> = ({
   };
 
   const handleSchedulePress = (schedule: ClassSchedule) => {
-    console.log(new Date(schedule.day));
-    if (!isToday(new Date(schedule.day))) {
+    if (!isToday(new Date(date))) {
       Toast.show({
         type: 'warning',
         text1: 'Cannot mark attendance for this day',
@@ -127,6 +129,7 @@ export const DailyScheduleView: React.FC<DailyScheduleViewProps> = ({
         keyExtractor={(item) => item._id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
+        refreshControl={refreshControl}
         renderItem={({ item }) => (
           <ScheduleCard
             schedule={item}

@@ -68,7 +68,7 @@ export default function AttendanceScreen() {
 
   useEffect(() => {
     loadAttendanceData();
-  }, [loadAttendanceData]);
+  }, [loadAttendanceData, isRefreshing]);
 
   const handleRefresh = () => {
     console.log('refreshing');
@@ -216,16 +216,6 @@ export default function AttendanceScreen() {
       </Animated.View>
     );
   };
-
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <LoadingSpinner size={50} />
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   if (error) {
     return (

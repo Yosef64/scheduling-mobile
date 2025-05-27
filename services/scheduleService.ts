@@ -1,10 +1,11 @@
 import api from './api';
 import { ClassSchedule, ScheduleResponse, StudentGroup } from '@/types';
+import * as SecureStore from 'expo-secure-store';
 
 export const fetchSchedules = async (
   studentGroupId: string,
   semester: string,
-  own: boolean = false
+  own: boolean = true
 ): Promise<ScheduleResponse> => {
   try {
     const response = await api.get(`/schedule/group/${studentGroupId}`, {
@@ -15,7 +16,6 @@ export const fetchSchedules = async (
     });
     return response.data;
   } catch (error: any) {
-    console.error('Error fetching schedules:', error);
     if (error.response?.status === 404) {
       // Return empty response with default values when no schedules found
       return {
@@ -66,4 +66,8 @@ export const rescheduleClass = async (schedule: ClassSchedule) => {
     reschedule,
   });
   return response.data;
+};
+export const getSemester = (): string | null => {
+  const response = SecureStore.getItem('semester');
+  return response;
 };

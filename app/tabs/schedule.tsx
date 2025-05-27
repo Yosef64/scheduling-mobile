@@ -25,9 +25,12 @@ import {
   AttendanceRequest,
 } from '@/types';
 import { format } from 'date-fns';
-import { createAttendance } from '@/services/attendanceService';
+import { createAttendance, getAttendances } from '@/services/attendanceService';
 import Toast from 'react-native-toast-message';
 import { toastConfig } from '@/components/ToastConfig';
+import { router } from 'expo-router';
+import { fetchSchedules, getSemester } from '@/services/scheduleService';
+import { SemesterModal } from '@/components/SemesterModal';
 
 export default function ScheduleScreen() {
   const { user } = useAuth();
@@ -40,10 +43,14 @@ export default function ScheduleScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [semester, setSemester] = useState<string | null>(getSemester());
 
   const loadData = async (refreshing = false) => {
     try {
-      if (!user) return;
+      if (!user) {
+        router.replace('/login');
+        return;
+      }
 
       if (refreshing) {
         setIsRefreshing(true);
@@ -51,21 +58,41 @@ export default function ScheduleScreen() {
         setIsLoading(true);
       }
       setError(null);
+      setIsLoading(true);
+      try {
+        const response = await fetchSchedules(
+          studentGroup._id,
+          semester!,
+          true
+        );
+        const convertedSchedules = response.entries.flatMap(
+          convertToClassSchedule
+        );
+        const attendance = await getAttendances(user._id);
+        const dateString = format(selectedDate, 'yyyy-MM-dd');
+        const todaysAttendance = attendance.filter(
+          (a: Attendance) => a.date === dateString
+        );
+
+        setStudentGroup(response.studentGroup);
+        setSchedules(convertedSchedules);
+        setAttendance(todaysAttendance);
+        console.log('todaysAttendance', todaysAttendance);
+      } catch (error) {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Failed to load schedule data',
+          position: 'bottom',
+          visibilityTime: 4000,
+        });
+      } finally {
+        setIsLoading(false);
+      }
 
       // Convert mock data to ClassSchedule format
-      const convertedSchedules = mockScheduleResponse.entries.flatMap(
-        convertToClassSchedule
-      );
 
       // Get attendance for the selected date
-      const dateString = format(selectedDate, 'yyyy-MM-dd');
-      const todaysAttendance = mockAttendanceData.filter(
-        (a) => a.date === dateString
-      );
-
-      setStudentGroup(mockScheduleResponse.studentGroup);
-      setSchedules(convertedSchedules);
-      setAttendance(todaysAttendance);
     } catch (err: any) {
       console.error('Error loading schedule data:', err);
       setError(err.message || 'Failed to load schedule data');
@@ -74,10 +101,10 @@ export default function ScheduleScreen() {
       setIsRefreshing(false);
     }
   };
-
+  console.log('selectedDate', selectedDate);
   useEffect(() => {
     loadData();
-  }, [user, selectedDate]);
+  }, [user, semester, isRefreshing]);
 
   const handleDateChange = (date: Date) => {
     setSelectedDate(date);
@@ -133,6 +160,27 @@ export default function ScheduleScreen() {
     }
   };
 
+  if (!semester) {
+    return (
+      <SemesterModal
+        visible={true}
+        onClose={() => {}}
+        onSelect={(semester) => {
+          console.log('semester', semester);
+          setSemester(semester.toString());
+        }}
+      />
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <LoadingSpinner size={32} color={colors.primary[500]} />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -141,8 +189,8 @@ export default function ScheduleScreen() {
         </Text>
         {studentGroup && (
           <Text style={styles.subText}>
-            {studentGroup.department} • Year {studentGroup.year} Section{' '}
-            {studentGroup.section}
+            {user?.studentGroup.department} • Year {user?.studentGroup.year}{' '}
+            Section {studentGroup.section}
           </Text>
         )}
       </View>
@@ -158,6 +206,14 @@ export default function ScheduleScreen() {
           date={selectedDate}
           attendance={attendance}
           onAttendanceSubmit={handleAttendanceSubmit}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={[colors.primary[500]]}
+              tintColor={colors.primary[500]}
+            />
+          }
         />
       </View>
       <Toast config={toastConfig} />
