@@ -42,14 +42,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const signIn = async (token: string): Promise<void> => {
-    try {
-      const userData = await verifyToken(token);
-      console.log(userData);
-      setUser(userData);
-    } catch (error) {
-      console.error('Sign in failed', error);
-      throw error;
-    }
+    const userData = await verifyToken(token);
+    console.log(userData);
+    setUser(userData);
   };
 
   const signOut = async (): Promise<void> => {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,10 @@ import {
   Image,
   TouchableOpacity,
   ScrollView,
-  Switch,
-  ViewStyle,
-  ImageStyle,
   TextStyle,
+  Platform,
+  Linking,
+  ActivityIndicator,
 } from 'react-native';
 import {
   colors,
@@ -23,20 +23,61 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   LogOut,
   ChevronRight,
-  Moon,
-  HelpCircle,
   User,
   Mail,
-  Phone,
   MapPin,
+  Download,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useNavigation } from '@react-navigation/native';
 import { RelativePathString, useRouter } from 'expo-router';
+import * as FileSystem from 'expo-file-system';
+import Toast from 'react-native-toast-message';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const router = useRouter();
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadSchedule = async () => {
+    if (!user) return;
+
+    setIsDownloading(true);
+    try {
+      // Replace this URL with your actual API endpoint
+      const url = `https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalender-2020.pdf`;
+
+      const filename = `schedule_${new Date().getTime()}.pdf`;
+      const result = await FileSystem.downloadAsync(
+        url,
+        FileSystem.documentDirectory + filename
+      );
+      console.log(result.status);
+
+      if (result.status === 201) {
+        Toast.show({
+          type: 'success',
+          text1: 'Success',
+          text2: 'Schedule downloaded successfully',
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
+
+        if (Platform.OS === 'ios') {
+          await Linking.openURL(result.uri);
+        }
+      }
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to download schedule',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   if (!user) {
     return (
@@ -50,7 +91,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
+      <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Profile</Text>
         </View>
@@ -72,14 +113,6 @@ export default function ProfileScreen() {
                 </Text>
               </View>
             )}
-            <TouchableOpacity
-              style={styles.editAvatarButton}
-              onPress={() =>
-                router.push('screens/EditProfile' as RelativePathString)
-              }
-            >
-              <User size={16} color={colors.primary[500]} />
-            </TouchableOpacity>
           </View>
 
           <View style={styles.userInfo}>
@@ -88,15 +121,45 @@ export default function ProfileScreen() {
 
             <View style={styles.detailsContainer}>
               <View style={styles.detailRow}>
-                <MapPin size={16} color={colors.gray[500]} />
-                <Text style={styles.detailText}>{user.department}</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Mail size={16} color={colors.gray[500]} />
-                <Text style={styles.detailText}>{user.class}</Text>
+                <Text style={styles.detailText}>
+                  {user.studentGroup.department} year {user.studentGroup.year}
+                </Text>
               </View>
             </View>
           </View>
+        </Animated.View>
+
+        <Animated.View
+          entering={FadeInDown.duration(500).delay(200)}
+          style={styles.actionsContainer}
+        >
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={handleDownloadSchedule}
+            disabled={isDownloading}
+          >
+            <View
+              style={[
+                styles.actionIcon,
+                { backgroundColor: colors.primary[50] },
+              ]}
+            >
+              {isDownloading ? (
+                <ActivityIndicator size="small" color={colors.primary[600]} />
+              ) : (
+                <Download size={20} color={colors.primary[600]} />
+              )}
+            </View>
+            <View style={styles.actionTextContainer}>
+              <Text style={styles.actionTitle}>
+                {isDownloading ? 'Downloading...' : 'Download Schedule'}
+              </Text>
+              <Text style={styles.actionSubtitle}>
+                Get your schedule as PDF
+              </Text>
+            </View>
+            <ChevronRight size={20} color={colors.gray[400]} />
+          </TouchableOpacity>
         </Animated.View>
 
         <Animated.View
@@ -112,6 +175,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </Animated.View>
       </ScrollView>
+      <Toast />
     </SafeAreaView>
   );
 }
@@ -145,11 +209,13 @@ const styles = StyleSheet.create({
   profileCard: {
     marginHorizontal: spacing[3],
     marginVertical: spacing[2],
-    padding: spacing[4],
+    padding: spacing[2],
     backgroundColor: 'white',
     borderRadius: borderRadius.xl,
-    ...shadows.lg,
+    ...shadows.sm,
     alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing[3],
   },
   avatarContainer: {
     position: 'relative',
@@ -217,54 +283,42 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
     color: colors.gray[600],
   },
-  sectionContainer: {
+  actionsContainer: {
     marginTop: spacing[4],
     marginHorizontal: spacing[3],
-  },
-  sectionTitle: {
-    fontFamily: typography.fontFamily,
-    fontWeight: typography.weights.semibold as TextStyle['fontWeight'],
-    fontSize: typography.sizes.md,
-    color: colors.gray[700],
-    marginBottom: spacing[2],
-  },
-  optionCard: {
     backgroundColor: 'white',
     borderRadius: borderRadius.xl,
     ...shadows.sm,
   },
-  option: {
+  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     padding: spacing[3],
     borderBottomWidth: 1,
     borderBottomColor: colors.gray[100],
   },
-  switchOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing[3],
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[100],
-  },
-  optionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  optionIcon: {
+  actionIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing[2],
+    marginRight: spacing[3],
   },
-  optionText: {
+  actionTextContainer: {
+    flex: 1,
+  },
+  actionTitle: {
     fontFamily: typography.fontFamily,
     fontSize: typography.sizes.md,
-    color: colors.gray[800],
+    fontWeight: typography.weights.medium as TextStyle['fontWeight'],
+    color: colors.gray[900],
+  },
+  actionSubtitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: typography.sizes.sm,
+    color: colors.gray[500],
+    marginTop: 2,
   },
   logoutContainer: {
     marginTop: spacing[6],
